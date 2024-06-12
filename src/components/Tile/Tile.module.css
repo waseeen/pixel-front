@@ -1,0 +1,15 @@
+.tile {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border: 1px solid rgb(0, 0, 0, 0.2);
+  width: 30px;
+  height: 30px;
+}
+.tile__selected {
+  border: 3px double black;
+}
+
+.tile_black__selected {
+  border: 3px double white;
+}
