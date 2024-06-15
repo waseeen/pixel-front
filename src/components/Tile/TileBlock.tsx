@@ -27,10 +27,10 @@ const TileBlock = ({
     Colors.Red,
     Colors.Blue,
   ];
-  const selectedBlack = darkColors.includes(tile.color);
-  const cl =
-    classes.tile +
-    (selected ? (' ' + selectedBlack ? classes.tile_black__selected : classes.tile__selected) : '');
+  const selectedOutline = darkColors.includes(tile.color)
+    ? classes.tile_black__selected
+    : classes.tile__selected;
+  const cl = classes.tile + (selected ? ' ' + selectedOutline : '');
   return (
     <Box
       className={cl}

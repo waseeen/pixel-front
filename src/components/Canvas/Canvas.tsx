@@ -27,6 +27,9 @@ const Canvas = () => {
           row.forEach((tile, t) => {
             if (selectedTile === tile.number) {
               ctx.fillStyle = '#000000';
+              if (tile.color === '#000000') {
+                ctx.fillStyle = '#999999';
+              }
               ctx.fillRect(t * 30, r * 30, 30, 30);
               ctx.fillStyle = tile.color;
               ctx.fillRect(t * 30 + 5, r * 30 + 5, 20, 20);
