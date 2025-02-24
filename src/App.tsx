@@ -14,9 +14,10 @@ const socket = new WebSocket(import.meta.env.VITE_WS_URL);
 
 const App = () => {
   const inited = useRef(false);
-  const [tiles, setTiles] = useAtom(tilesAtom);
+  const [, setTiles] = useAtom(tilesAtom);
   const [, setSize] = useAtom(sizeAtom);
   const [, setCooldown] = useAtom(cooldownAtom);
+
   const getTiles = async () => {
     const req = await fetch(import.meta.env.VITE_BACKEND_URL);
     const body = await req.json();
@@ -24,29 +25,32 @@ const App = () => {
     setTiles(body.payload.tiles);
     setCooldown(body.payload.cooldown);
   };
+
   const setup = async () => {
     await getTiles();
   };
 
   const editTile = (e: MessageEvent) => {
     const body = JSON.parse(e.data);
-    if (body.type == MessageType.UPDATE) {
+    if (body.type === MessageType.UPDATE) {
       const payload = body.payload as Tile;
-      const newTiles = [...tiles];
-      newTiles[payload.number] = {
-        ...newTiles[payload.number],
-        number: payload.number,
-        color: payload.color,
-      };
-      setTiles(newTiles);
+
+      setTiles((prevTiles) => {
+        const newTiles = [...prevTiles];
+        newTiles[payload.number] = {
+          ...newTiles[payload.number],
+          color: payload.color,
+        };
+        return newTiles;
+      });
     }
   };
 
   useEffect(() => {
-    if (inited.current === false) {
+    if (!inited.current) {
       setup();
+      inited.current = true;
     }
-    inited.current = true;
     socket.addEventListener('message', editTile);
 
     return () => {
