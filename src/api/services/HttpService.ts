@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { showError } from '../../utils/showError';
 import { TranslationType, isErrorCode } from '../../i18n';
+import env from '../../utils/env';
 
 type Errors = keyof TranslationType['error'];
 
@@ -25,7 +26,7 @@ class HttpService {
   private axs: AxiosInstance;
   constructor() {
     this.axs = axios.create({
-      baseURL: import.meta.env.VITE_BACKEND_URL,
+      baseURL: env.backendUrl,
     });
   }
   private getHeaders() {

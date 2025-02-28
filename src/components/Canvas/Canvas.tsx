@@ -1,131 +1,88 @@
 import { useAtom } from 'jotai';
-import { hoveredTileAtom, selectedTileAtom, sizeAtom, tilesAtom } from '../../molecules/canvas';
-import { useCallback, useEffect, useRef } from 'react';
+import { cooldownAtom, sizeAtom } from '../../molecules/canvas';
+import { useEffect, useRef } from 'react';
 import { Tile } from '../../types/Tile';
 import socket from '../../api/ws';
+import { MessageType } from '../../types/Message';
+import env from '../../utils/env';
+
+const getCoordsByIndex = (index: number, size: { x: number; y: number }) => {
+  const x = index % size.x;
+  const y = Math.floor(index / size.x);
+  return { x, y };
+};
 
 const Canvas = () => {
-  const [tiles, setTiles] = useAtom(tilesAtom);
-  const [size] = useAtom(sizeAtom);
-  const [selectedTile, setSelectedTile] = useAtom(selectedTileAtom);
-  const [, setHoveredTile] = useAtom(hoveredTileAtom);
+  const inited = useRef(false);
   const ref = useRef<HTMLCanvasElement>(null);
+  const [size, setSize] = useAtom(sizeAtom);
+  const [, setCooldown] = useAtom(cooldownAtom);
 
-  const drawTile = (
-    ctx: CanvasRenderingContext2D,
-    tile: Tile,
-    x: number,
-    y: number,
-    isSelected: boolean,
-  ) => {
-    ctx.fillStyle = isSelected ? '#000000' : tile.color;
-    if (isSelected && tile.color === '#000000') {
-      ctx.fillStyle = '#999999';
-    }
-    ctx.fillRect(x * 30, y * 30, 30, 30);
-
-    if (isSelected) {
-      ctx.fillStyle = tile.color;
-      ctx.fillRect(x * 30 + 5, y * 30 + 5, 20, 20);
-    }
+  const setup = async (): Promise<void> => {
+    const req = await fetch(env.backendUrl);
+    const body: { payload: { size: [number, number]; tiles: Tile[]; cooldown: number } } =
+      await req.json();
+    const { size, tiles, cooldown } = body.payload;
+    const [x, y] = size;
+    setSize({ x, y });
+    setCooldown(cooldown);
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    tiles.map((tile) => drawTile(ctx, tile, { x, y }));
   };
 
-  const updateTile = useCallback(
-    (tile: Tile) => {
+  const editTile = (e: MessageEvent) => {
+    const body = JSON.parse(e.data);
+    if (body.type === MessageType.UPDATE) {
       const canvas = ref.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
-
-      const x = tile.number % size.x;
-      const y = Math.floor(tile.number / size.x);
-      drawTile(ctx, tile, x, y, tile.number === selectedTile);
-    },
-    [size, selectedTile],
-  );
-
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    tiles.forEach((tile, i) => {
-      const x = i % size.x;
-      const y = Math.floor(i / size.x);
-      drawTile(ctx, tile, x, y, i === selectedTile);
-    });
-  }, [tiles, size, selectedTile]);
-
-  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = ref.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const x = Math.floor(e.nativeEvent.offsetX / 30);
-    const y = Math.floor(e.nativeEvent.offsetY / 30);
-    const tileIndex = x + y * size.x;
-
-    setSelectedTile(tileIndex);
-
-    // Рисуем выделенную клетку
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    tiles.forEach((tile, i) => {
-      const tileX = i % size.x;
-      const tileY = Math.floor(i / size.x);
-      drawTile(ctx, tile, tileX, tileY, i === tileIndex);
-    });
+      const payload: Tile = body.payload;
+      drawTile(ctx, payload);
+    }
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = ref.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = Math.ceil(e.nativeEvent.offsetX / 30);
-    const y = Math.ceil(e.nativeEvent.offsetY / 30);
-    setHoveredTile({ x: x, y: y });
-  };
-
-  const handleMouseLeave = () => {
-    setHoveredTile(null);
+  const drawTile = (
+    ctx: CanvasRenderingContext2D,
+    tile: Tile,
+    sizeOverride?: { x: number; y: number },
+  ) => {
+    const pixelSize = env.pixelSize;
+    const currentSize = sizeOverride || size;
+    const { x, y } = getCoordsByIndex(tile.number, currentSize);
+    ctx.fillStyle = tile.color ?? '#ffffff';
+    ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
   };
 
   useEffect(() => {
-    const editTile = (e: MessageEvent) => {
-      const body = JSON.parse(e.data);
-      if (body.type === 'UPDATE') {
-        const payload = body.payload as Tile;
-        updateTile(payload);
+    if (!inited.current) {
+      setup();
+      inited.current = true;
+    }
+  });
 
-        setTiles((prevTiles) => {
-          const newTiles = [...prevTiles];
-          newTiles[payload.number] = {
-            ...newTiles[payload.number],
-            color: payload.color,
-          };
-          return newTiles;
-        });
-      }
-    };
-
+  useEffect(() => {
+    if (!inited.current) {
+      inited.current = true;
+    }
     socket.addEventListener('message', editTile);
 
     return () => {
       socket.removeEventListener('message', editTile);
     };
-  }, [setTiles, selectedTile, updateTile]);
-
+  });
+  const width = env.width * env.pixelSize;
+  const height = env.height * env.pixelSize;
   return (
     <canvas
+      style={{ position: 'absolute', top: 0, left: 0 }}
       ref={ref}
       id="canvas"
-      width={size.x * 30}
-      height={size.y * 30}
-      onClick={handleClick}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
+      width={width}
+      height={height}
     />
   );
 };

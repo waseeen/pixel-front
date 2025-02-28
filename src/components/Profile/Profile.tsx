@@ -7,10 +7,11 @@ import { deleteToken, editNickname, getProfile } from '../../api/services/Profil
 import { useAtom } from 'jotai';
 import { profileAtom } from '../../molecules/profile';
 import { useTranslation } from 'react-i18next';
+import env from '../../utils/env';
 
 VKID.Config.set({
-  app: import.meta.env.VITE_VK_APP_ID,
-  redirectUrl: import.meta.env.VITE_REDIRECT_URL,
+  app: env.vkAppId,
+  redirectUrl: env.redirectUrl,
 });
 
 const Profile = () => {

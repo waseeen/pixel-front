@@ -1,72 +1,26 @@
-import { useEffect, useRef } from 'react';
-import { MessageType } from './types/Message';
-import { Tile } from './types/Tile';
-import ColorPicker from './components/ColorPicker/ColorPicker';
-import Profile from './components/Profile/Profile';
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch';
 import Canvas from './components/Canvas/Canvas';
+import ColorPicker from './components/ColorPicker/ColorPicker';
 import HoveredTile from './components/HoveredTile/HoveredTile';
-import { useAtom } from 'jotai';
-import { cooldownAtom, sizeAtom, tilesAtom } from './molecules/canvas';
 import LanguagePicker from './components/LanguagePicker/LanguagePicker';
-
-const socket = new WebSocket(import.meta.env.VITE_WS_URL);
+import Profile from './components/Profile/Profile';
+import CanvasOverlay from './components/Canvas/CanvasOverlay';
+import env from './utils/env';
 
 const App = () => {
-  const inited = useRef(false);
-  const [, setTiles] = useAtom(tilesAtom);
-  const [, setSize] = useAtom(sizeAtom);
-  const [, setCooldown] = useAtom(cooldownAtom);
-
-  const getTiles = async () => {
-    const req = await fetch(import.meta.env.VITE_BACKEND_URL);
-    const body = await req.json();
-    setSize({ x: body.payload.size[0], y: body.payload.size[1] });
-    setTiles(body.payload.tiles);
-    setCooldown(body.payload.cooldown);
-  };
-
-  const setup = async () => {
-    await getTiles();
-  };
-
-  const editTile = (e: MessageEvent) => {
-    const body = JSON.parse(e.data);
-    if (body.type === MessageType.UPDATE) {
-      const payload = body.payload as Tile;
-
-      setTiles((prevTiles) => {
-        const newTiles = [...prevTiles];
-        newTiles[payload.number] = {
-          ...newTiles[payload.number],
-          color: payload.color,
-        };
-        return newTiles;
-      });
-    }
-  };
-
-  useEffect(() => {
-    if (!inited.current) {
-      setup();
-      inited.current = true;
-    }
-    socket.addEventListener('message', editTile);
-
-    return () => {
-      socket.removeEventListener('message', editTile);
-    };
-  });
-
   return (
     <>
       <TransformWrapper
-        initialScale={window.innerWidth / 15000}
+        initialScale={0.29}
         limitToBounds={true}
-        minScale={0.1}
-        maxScale={0.75}
-        centerOnInit
-        wheel={{ smoothStep: 0.0005 }}
+        minScale={0.25}
+        maxScale={2}
+        centerOnInit={true}
+        smooth={true}
+        wheel={{
+          // smoothStep: 0.0005,
+          step: 0.5,
+        }}
       >
         <TransformComponent
           wrapperStyle={{
@@ -74,7 +28,16 @@ const App = () => {
             height: '100cqh',
           }}
         >
-          <Canvas />
+          <div
+            style={{
+              position: 'relative',
+              width: `${env.width * env.pixelSize}px`,
+              height: `${env.height * env.pixelSize}px`,
+            }}
+          >
+            <Canvas />
+            <CanvasOverlay />
+          </div>
         </TransformComponent>
       </TransformWrapper>
       <LanguagePicker />
